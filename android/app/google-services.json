@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "652403014533",
+    "project_id": "musicprofileapp",
+    "storage_bucket": "musicprofileapp.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:652403014533:android:6ac8f08c4e3e0f2e42a2ec",
+        "android_client_info": {
+          "package_name": "com.example.muiscprofileapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "652403014533-l89lt9qta0svo63l5dgrs6egkuakklaa.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.muiscprofileapp",
+            "certificate_hash": "584f8cc4a8c29fef6c9d5bec56f2991533c768f1"
+          }
+        },
+        {
+          "client_id": "652403014533-fii7vq4vtp2j0p3np483eekfvhb4287k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-yyZQjujuElK8EaEQK2h0USnFU6p3LyY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "652403014533-fii7vq4vtp2j0p3np483eekfvhb4287k.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
