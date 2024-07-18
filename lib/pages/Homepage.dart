@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:muiscprofileapp/pages/ActivityPage.dart';
 import 'package:muiscprofileapp/providers/BottomNavBarprovider.dart';
 import 'package:provider/provider.dart';
 import 'package:muiscprofileapp/pages/NewScreen.dart';
 import 'package:muiscprofileapp/pages/NotificationsScreen.dart';
 import 'package:muiscprofileapp/pages/ProfileScreen.dart';
 import 'package:muiscprofileapp/pages/SearchScreen.dart';
+ // Import ExploreScreen
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -17,41 +19,54 @@ class _HomePageState extends State<HomePage> {
   bool isExpanded = false; // Moved isExpanded to class scope
 
   void _onTabTapped(int index) {
-    final navigationProvider = Provider.of<BottomNavigationBarProvider>(context, listen: false);
+    final navigationProvider = Provider.of<BottomNavigationBarProvider>(
+      context,
+      listen: false,
+    );
 
-    if (navigationProvider.currentIndex != index) {
-      navigationProvider.setIndex(index);
+    if (navigationProvider.currentIndex == index) {
+      return; // Do nothing if already on the same tab
+    }
 
-      // Perform navigation based on index
-      switch (index) {
-        case 0:
-        // Already on HomePage, do nothing
-          break;
-        case 1:
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => ExploreScreen()),
-          );
-          break;
-        case 2:
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => NewScreen()),
-          );
-          break;
-        case 3:
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => NotificationsScreen()),
-          );
-          break;
-        case 4:
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => ProfileScreen()),
-          );
-          break;
-      }
+    navigationProvider.setIndex(index);
+
+    // Perform navigation based on index
+    switch (index) {
+      case 0:
+      // Handle navigation or perform action for the Home tab
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()),
+        );
+        break;
+      case 1:
+      // Navigate to ExploreScreen
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => ExploreScreen()),
+        );
+        break;
+      case 2:
+      // Navigate to NewScreen
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => NewScreen()),
+        );
+        break;
+      case 3:
+      // Navigate to NotificationsScreen
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => NotificationsScreen()),
+        );
+        break;
+      case 4:
+      // Navigate to ProfileScreen
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => ProfileScreen()),
+        );
+        break;
     }
   }
 
@@ -73,7 +88,7 @@ class _HomePageState extends State<HomePage> {
                   Color(0xFF1f0d1d),
                   Color(0xFF140f13),
                 ],
-                stops: [0.5, 0.5],
+                stops: [0.1, 0.2],
               ),
             ),
           ),
@@ -89,14 +104,24 @@ class _HomePageState extends State<HomePage> {
                       onTap: () {
                         // Handle notifications tap
                       },
-                      child: Icon(
-                        Icons.notifications,
-                        color: Colors.white,
+                      child: GestureDetector(
+                        onTap: (){
+                          Navigator.push(context, MaterialPageRoute(builder: (context)=>ActivityPage()));
+                        },
+                        child: Icon(
+                          Icons.notifications,
+                          color: Colors.white,
+
+
+                        ),
                       ),
                     ),
                     SizedBox(width: 16),
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Color(0xFFffc7ee),
                         borderRadius: BorderRadius.circular(20),
@@ -151,30 +176,52 @@ class _HomePageState extends State<HomePage> {
               backgroundColor: Colors.black,
               unselectedItemColor: Colors.white.withOpacity(0.6),
               selectedItemColor: Colors.white,
-              onTap: _onTabTapped,
+              onTap: (index) => _onTabTapped(index),
               currentIndex: currentIndex,
               type: BottomNavigationBarType.fixed,
               items: [
                 BottomNavigationBarItem(
-                  icon: Image.asset('lib/icons/home.png', width: 24, height: 24, color: Colors.white),
+                  icon: Image.asset(
+                    'lib/icons/home.png',
+                    width: 24,
+                    height: 24,
+                    color: Colors.white,
+                  ),
                   label: 'Home',
                 ),
                 BottomNavigationBarItem(
-                  icon: Image.asset('lib/icons/orbits.png', width: 24, height: 24, color: Colors.white),
+                  icon: Image.asset(
+                    'lib/icons/orbits.png',
+                    width: 24,
+                    height: 24,
+                    color: Colors.white,
+                  ),
                   label: 'Explore',
                 ),
                 BottomNavigationBarItem(
-                  icon: Image.asset('lib/icons/more.png', width: 24, height: 24, color: Colors.white),
+                  icon: Image.asset(
+                    'lib/icons/more.png',
+                    width: 24,
+                    height: 24,
+                    color: Colors.white,
+                  ),
                   label: 'New',
                 ),
                 BottomNavigationBarItem(
-                  icon: Image.asset('lib/icons/inbox.png', width: 24, height: 24, color: Colors.white),
+                  icon: Image.asset(
+                    'lib/icons/inbox.png',
+                    width: 24,
+                    height: 24,
+                    color: Colors.white,
+                  ),
                   label: 'Inbox',
                 ),
                 BottomNavigationBarItem(
                   icon: CircleAvatar(
                     radius: 14,
-                    backgroundImage: AssetImage('lib/icons/profile_image.png'), // Replace with your profile image asset
+                    backgroundImage: AssetImage(
+                      'lib/icons/profile_image.png',
+                    ), // Replace with your profile image asset
                   ),
                   label: 'Profile',
                 ),
@@ -187,8 +234,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildListItem() {
-    bool isExpanded = false; // Track whether description is expanded
-
     return Container(
       margin: EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
@@ -295,7 +340,12 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                 ),
-                Image.asset('lib/icons/wishlist.png', width: 24, height: 24, color: Colors.white),
+                Image.asset(
+                  'lib/icons/wishlist.png',
+                  width: 24,
+                  height: 24,
+                  color: Colors.white,
+                ),
               ],
             ),
           ),
@@ -313,53 +363,73 @@ class _HomePageState extends State<HomePage> {
               child: AnimatedSize(
                 duration: Duration(milliseconds: 200),
                 child: Text(
-                  'This is a sample description. Tap to see more. ' *
-                      4, // Duplicate text for longer description
+                  'This is a sample description. Tap to see more. ' * 4,
+                  // Duplicate text for longer description
                   style: TextStyle(color: Colors.white),
-                  maxLines: isExpanded ? null : 2, // Expandable logic
-                  overflow:
-                  isExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                  maxLines: isExpanded ? null : 2,
+                  // Show full text when expanded
+                  overflow: isExpanded
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
                 ),
               ),
             ),
           ),
-          SizedBox(height: 16),
-          Divider(
-            color: Colors.white.withOpacity(0.3),
-            thickness: 1,
-            height: 1,
+          SizedBox(height: 8),
+
+          // Comments container
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              padding: EdgeInsets.all(12), // Increased padding for more height
+              decoration: BoxDecoration(
+                color: Color(0xFFfc92dd),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'User1: Top comment!',
+                    style: TextStyle(
+                      color: Color(0xFF2b1927),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'View all comments',
+                    style: TextStyle(
+                      color: Color(0xFF2b1927),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
+          SizedBox(height: 12),
         ],
       ),
     );
   }
 }
 
-// Custom IconButton widget
 class CustomIconButton extends StatelessWidget {
   final Widget icon;
   final VoidCallback onTap;
 
-  const CustomIconButton({required this.icon, required this.onTap});
+  const CustomIconButton({
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white,
-            width: 2,
-          ),
-        ),
-        child: Center(
-          child: icon,
-        ),
-      ),
+      child: icon,
     );
   }
 }
