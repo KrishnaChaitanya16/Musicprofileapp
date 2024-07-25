@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:muiscprofileapp/pages/ChatPage.dart';
@@ -29,6 +31,27 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     super.initState();
     _pageController = PageController(initialPage: _selectedPageIndex);
   }
+  String formatTimeAgo(Timestamp timestamp) {
+    final now = DateTime.now();
+    final messageTime = timestamp.toDate();
+    final difference = now.difference(messageTime);
+
+    if (difference.inDays > 1) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inDays == 1) {
+      return '1 day ago';
+    } else if (difference.inHours > 1) {
+      return '${difference.inHours} hours ago';
+    } else if (difference.inHours == 1) {
+      return '1 hour ago';
+    } else if (difference.inMinutes > 1) {
+      return '${difference.inMinutes} minutes ago';
+    } else if (difference.inMinutes == 1) {
+      return '1 minute ago';
+    } else {
+      return 'Just now';
+    }
+  }
 
   @override
   void dispose() {
@@ -36,6 +59,67 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     _circlesSearchController.dispose();
     _messagesSearchController.dispose();
     super.dispose();
+  }
+  Future<void> updateUnreadCount(String circleId, int incrementBy) async {
+    try {
+      final circleRef = FirebaseFirestore.instance.collection('circles').doc(circleId);
+
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final circleDoc = await transaction.get(circleRef);
+        if (!circleDoc.exists) {
+          throw Exception('Circle does not exist');
+        }
+
+        final currentUnreadCount = circleDoc['unreadCount'] as int? ?? 0;
+        transaction.update(circleRef, {
+          'unreadCount': currentUnreadCount + incrementBy,
+          'timestamp': Timestamp.now(),
+        });
+      });
+    } catch (e) {
+      print('Error updating unread count: $e');
+    }
+  }
+  Future<void> updateLastMessage(String circleId, String message) async {
+    try {
+      final circleRef = FirebaseFirestore.instance.collection('circles').doc(circleId);
+
+      await circleRef.update({
+        'lastMessage': message,
+        'timestamp': Timestamp.now(),
+      });
+    } catch (e) {
+      print('Error updating last message: $e');
+    }
+  }
+  Future<void> resetUnreadCount(String circleId) async {
+    try {
+      final circleRef = FirebaseFirestore.instance.collection('circles').doc(circleId);
+
+      await circleRef.update({
+        'unreadCount': 0,
+      });
+    } catch (e) {
+      print('Error resetting unread count: $e');
+    }
+  }
+
+  Future<String?> fetchUsername(String userId) async {
+    try {
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+
+      if (userDoc.exists) {
+        final data = userDoc.data() as Map<String, dynamic>?;
+        print(data?['username'] as String?);
+        return data?['username'] as String?;
+      }
+    } catch (e) {
+      print('Error fetching username: $e');
+    }
+    return null;
   }
 
   void _onCirclesSearchTextChanged(String text) {
@@ -49,6 +133,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       _showMessagesSearchResults = text.isNotEmpty;
     });
   }
+  Future<List<Map<String, dynamic>>> fetchMessages(String userId) async {
+    try {
+      final messagesSnapshot = await FirebaseFirestore.instance
+          .collection('chats')
+          .where('receiverId', isEqualTo: await fetchUsername(userId))
+          .get();
+
+      return messagesSnapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+    } catch (e) {
+      print('Error fetching messages: $e');
+      return [];
+    }
+  }
+
 
   void _onClearCirclesSearch() {
     _circlesSearchController.clear();
@@ -116,6 +214,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     final provider = Provider.of<BottomNavigationBarProvider>(context);
     final int currentIndex = provider.currentIndex;
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+
 
     return Scaffold(
       body: Container(
@@ -260,34 +361,96 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           ),
                         ),
                         Expanded(
-                          child: ListView.builder(
-                            itemCount: 5, // Replace with your actual number of groups
-                            itemBuilder: (context, index) {
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundImage: AssetImage('lib/icons/group_image.png'), // Replace with your group image asset
-                                  radius: 25,
-                                ),
-                                title: Text(
-                                  'Group Name $index',
-                                  style: GoogleFonts.nunito(color: Colors.white),
-                                ),
-                                subtitle: Row(
-                                  children: [
-                                    Text(
-                                      'Updated $index min ago',
-                                      style: GoogleFonts.nunito(color: Colors.white70),
+                          child: StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance.collection('circles').snapshots(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return Center(child: CircularProgressIndicator());
+                              }
+
+                              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                                return Center(child: Text('No circles available', style: TextStyle(color: Colors.white)));
+                              }
+
+                              final circles = snapshot.data!.docs;
+
+                              // Process circles and sort by unreadCount if needed
+                              final sortedCircles = circles.map((doc) {
+                                final circle = doc.data() as Map<String, dynamic>;
+                                return {
+                                  'circleId': circle['circleId'],
+                                  'name': circle['name'],
+                                  'description': circle['description'],
+                                  'imageUrl': circle['imageUrl'],
+                                  'unreadCount': circle['unreadCount'] ?? 0,
+                                  'lastMessage': circle['lastMessage'],
+                                  'timestamp': circle['timestamp'] as Timestamp,
+                                };
+                              }).toList()
+                                ..sort((a, b) {
+                                  final unreadCountA = a['unreadCount'] as int?;
+                                  final unreadCountB = b['unreadCount'] as int?;
+                                  return (unreadCountB ?? 0).compareTo(unreadCountA ?? 0); // Unread circles first
+                                });
+
+                              return ListView.builder(
+                                itemCount: sortedCircles.length,
+                                itemBuilder: (context, index) {
+                                  final circle = sortedCircles[index];
+                                  final name = circle['name'] as String;
+                                  final description = circle['description'] as String;
+                                  final imageUrl = circle['imageUrl'] as String;
+                                  final unreadCount = circle['unreadCount'] as int;
+                                  final lastMessage = circle['lastMessage'] as String?;
+                                  final timestamp = circle['timestamp'] as Timestamp;
+
+                                  return ListTile(
+                                    contentPadding: EdgeInsets.all(8),
+                                    leading: CircleAvatar(
+                                      backgroundImage: NetworkImage(imageUrl),
                                     ),
-                                  ],
-                                ),
-                                trailing: Icon(Icons.more_vert, color: Colors.white),
-                                onTap: () {
-                                  // Handle group tap
+                                    title: Text(name, style: TextStyle(color: Colors.white)),
+                                    subtitle: RichText(
+                                      text: TextSpan(
+                                        children: [
+                                          if (unreadCount > 0)
+                                            TextSpan(
+                                              text: '$unreadCount New message${unreadCount > 1 ? 's' : ''} ',
+                                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                            ),
+                                          TextSpan(
+                                            text: ' ${lastMessage ?? ''} ',
+                                            style: TextStyle(color: Colors.grey[400]),
+                                          ),
+                                          TextSpan(
+                                            text: ' ${formatTimeAgo(timestamp)} ',
+                                            style: TextStyle(color: Colors.grey[600]),
+                                          ),
+                                          if (unreadCount > 0)
+                                            WidgetSpan(
+                                              child: CircleAvatar(
+                                                radius: 4,
+                                                backgroundColor: Color(0xFFF78FD8), // RGB(247, 143, 218)
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ChatPage(chatId: name,),
+                                        ),
+                                      );
+                                    },
+                                  );
                                 },
                               );
                             },
                           ),
                         ),
+
                       ],
                     ),
                     // Messages Page
@@ -341,49 +504,104 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             ],
                           ),
                         ),
+
                         Expanded(
-                          child: ListView.builder(
-                            itemCount: 5, // Replace with your actual number of messages
-                            itemBuilder: (context, index) {
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundImage: AssetImage('lib/icons/profile_image.png'), // Replace with your profile image asset
-                                  radius: 25,
-                                ),
-                                title: Text(
-                                  'Username $index',
-                                  style: GoogleFonts.nunito(color: Colors.white),
-                                ),
-                                subtitle: Row(
-                                  children: [
-                                    Text(
-                                      '$index new messages',
-                                      style: GoogleFonts.nunito(color: Colors.white70),
+                          child: StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance.collection('chats').snapshots(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return Center(child: CircularProgressIndicator());
+                              }
+
+                              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                                return Center(child: Text('No messages available', style: TextStyle(color: Colors.white)));
+                              }
+
+                              // Extract conversations
+                              final conversations = snapshot.data!.docs.map((chatDoc) {
+                                final messages = chatDoc['messages'] as List<dynamic>? ?? [];
+
+                                // Get the latest message
+                                final latestMessage = messages.isNotEmpty ? messages.last : {};
+
+                                final senderId = latestMessage['senderId'] as String? ?? 'Unknown';
+                                final messageText = latestMessage['message'] as String? ?? '';
+                                final timestamp = latestMessage['timestamp'] as Timestamp?;
+                                final imageUrl = latestMessage['imageUrl'] as String? ?? '';
+                                final read = latestMessage['read'] as bool? ?? false;
+
+                                // Document ID represents the chat between sender and receiver
+                                final chatId = chatDoc.id;
+                                final participants = chatId.split('-');
+
+                                // Extract sender and receiver IDs
+                                final otherParticipantId = participants.firstWhere(
+                                        (id) => id != currentUserId,
+                                    orElse: () => 'Unknown'
+                                );
+
+                                return {
+                                  'chatId': chatId,
+                                  'chatPartnerId': otherParticipantId,
+                                  'lastMessage': messageText,
+                                  'timestamp': timestamp,
+                                  'imageUrl': imageUrl,
+                                };
+                              }).toList();
+
+                              return ListView.builder(
+                                itemCount: conversations.length,
+                                itemBuilder: (context, index) {
+                                  final conversation = conversations[index];
+                                  final chatId = conversation['chatId'] as String;
+                                  final chatPartnerId = conversation['chatPartnerId'] as String;
+                                  final lastMessage = conversation['lastMessage'] as String;
+                                  final timestamp = conversation['timestamp'] as Timestamp?;
+                                  final imageUrl = conversation['imageUrl'] as String;
+
+                                  return ListTile(
+                                    contentPadding: EdgeInsets.all(8),
+                                    leading: CircleAvatar(
+                                      backgroundImage: imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
+                                      child: imageUrl.isEmpty ? Icon(Icons.person) : null,
                                     ),
-                                    SizedBox(width: 10),
-                                    Text(
-                                      '${index + 1} hrs ago',
-                                      style: GoogleFonts.nunito(color: Colors.white70),
+                                    title: Text(chatPartnerId, style: TextStyle(color: Colors.white)),
+                                    subtitle: RichText(
+                                      text: TextSpan(
+                                        children: [
+                                          TextSpan(
+                                            text: '${lastMessage ?? ''} ',
+                                            style: TextStyle(color: Colors.grey[400]),
+                                          ),
+                                          TextSpan(
+                                            text: timestamp != null ? ' ${formatTimeAgo(timestamp)} ' : '',
+                                            style: TextStyle(color: Colors.grey[600]),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ],
-                                ),
-                                trailing: Icon(Icons.more_vert, color: Colors.white),
-                                onTap: () {
-                                  Navigator.push(context, MaterialPageRoute(builder: (context)=> ChatPage(title: 'Username $index',)));
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ChatPage(
+                                            chatId: chatId, // Pass the unique chat document ID
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
                                 },
                               );
                             },
                           ),
-                        ),
+                        )
+
+
                       ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ),
-        ),
-      ),
+    ]),
+      ),]),
       floatingActionButton: FloatingActionButton(
         onPressed: (){},
         backgroundColor: Colors.black,
@@ -448,6 +666,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ],
       ),
-    );
+    )));
   }
 }

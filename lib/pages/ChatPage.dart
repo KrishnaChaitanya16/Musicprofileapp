@@ -1,20 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class ChatPage extends StatelessWidget {
-  final String title;
+class ChatPage extends StatefulWidget {
+  final String chatId;
 
-  const ChatPage({Key? key, required this.title}) : super(key: key);
+  const ChatPage({
+    Key? key,
+    required this.chatId,
+  }) : super(key: key);
+
+  @override
+  _ChatPageState createState() => _ChatPageState();
+}
+
+class _ChatPageState extends State<ChatPage> {
+  final _messageController = TextEditingController();
+  String? _currentUserUsername;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCurrentUserUsername();
+  }
+
+  Future<void> _fetchCurrentUserUsername() async {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId != null) {
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUserId)
+            .get();
+        setState(() {
+          _currentUserUsername = userDoc['username'] as String?;
+        });
+      } catch (e) {
+        print('Error fetching user username: $e');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_currentUserUsername == null) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: Colors.black, // Background color of the page
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
           Column(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 40.0),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0, vertical: 40.0),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -31,7 +75,7 @@ class ChatPage extends StatelessWidget {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        Navigator.pop(context); // Go back to the previous screen
+                        Navigator.pop(context);
                       },
                       child: Icon(Icons.arrow_back, color: Colors.white),
                     ),
@@ -40,11 +84,13 @@ class ChatPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Username', // Replace with actual username
-                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          widget.chatId,
+                          style: TextStyle(color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          title, // Replace with actual name if different from title
+                          'Chat Partner',
                           style: TextStyle(color: Colors.white70, fontSize: 14),
                         ),
                       ],
@@ -75,23 +121,60 @@ class ChatPage extends StatelessWidget {
                       topRight: Radius.circular(20),
                     ),
                   ),
-                  child: ListView(
-                    padding: const EdgeInsets.all(16.0),
-                    children: [
-                      MessageBubble(
-                        isUser: true,
-                        message: 'Hello!',
-                        timestamp: '10:30 AM',
-                        profileImage: 'assets/user_profile.png', // Replace with actual image path
-                      ),
-                      MessageBubble(
-                        isUser: false,
-                        message: 'Hi there!',
-                        timestamp: '10:32 AM',
-                        profileImage: 'assets/other_profile.png', // Replace with actual image path
-                      ),
-                      // Add more MessageBubble widgets here
-                    ],
+                  child: StreamBuilder<DocumentSnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('chats')
+                        .doc(widget.chatId)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Center(child: CircularProgressIndicator());
+                      }
+
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Text(
+                            'Error fetching messages: ${snapshot.error}',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        );
+                      }
+
+                      if (!snapshot.hasData || !snapshot.data!.exists) {
+                        return Center(child: Text('No messages available',
+                            style: TextStyle(color: Colors.white)));
+                      }
+
+                      final chatDoc = snapshot.data!;
+                      final messages = chatDoc['messages'] as List<dynamic>? ??
+                          [];
+
+                      return ListView.builder(
+                        itemCount: messages.length,
+                        itemBuilder: (context, index) {
+                          final message = messages[index] as Map<String,
+                              dynamic>;
+                          final senderUsername = message['senderId'] as String? ??
+                              'Unknown';
+                          final messageText = message['message'] as String? ??
+                              '';
+                          final timestamp = message['timestamp'] as Timestamp?;
+                          final imageUrl = message['imageUrl'] as String? ?? '';
+                          final read = message['read'] as bool? ?? false;
+
+                          final isUser = senderUsername == _currentUserUsername;
+
+                          return MessageBubble(
+                            isUser: isUser,
+                            message: messageText,
+                            timestamp: timestamp != null ? formatTimeAgo(
+                                timestamp) : 'Unknown time',
+                            profileImage: imageUrl,
+                            read: read,
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
               ),
@@ -120,12 +203,15 @@ class ChatPage extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8.0),
                       child: TextField(
+                        controller: _messageController,
                         decoration: InputDecoration(
                           hintText: 'Enter your message...',
-                          hintStyle: TextStyle(color: Colors.white54, fontFamily: 'Nunito'),
+                          hintStyle: TextStyle(color: Colors.white54,
+                              fontFamily: 'Nunito'),
                           border: InputBorder.none,
                         ),
-                        style: TextStyle(color: Colors.white, fontFamily: 'Nunito'),
+                        style: TextStyle(
+                            color: Colors.white, fontFamily: 'Nunito'),
                       ),
                     ),
                   ),
@@ -137,7 +223,7 @@ class ChatPage extends StatelessWidget {
                     child: IconButton(
                       icon: Icon(Icons.send, color: Colors.white),
                       onPressed: () {
-                        // Add action to send the message
+                        _sendMessage();
                       },
                     ),
                   ),
@@ -149,13 +235,90 @@ class ChatPage extends StatelessWidget {
       ),
     );
   }
-}
 
-class MessageBubble extends StatelessWidget {
+  String formatTimeAgo(Timestamp timestamp) {
+    final now = DateTime.now();
+    final messageTime = timestamp.toDate();
+    final difference = now.difference(messageTime);
+
+    if (difference.inDays > 365) {
+      return '${(difference.inDays / 365).floor()} years ago';
+    } else if (difference.inDays > 30) {
+      return '${(difference.inDays / 30).floor()} months ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hours ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minutes ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
+  Future<String> getChatId() async {
+    final currentUserUsername = _currentUserUsername;
+    final partnerUsername = widget.chatId;
+
+    if (currentUserUsername == null) {
+      throw Exception('No user username available');
+    }
+
+    // Generate a unique chat ID by combining the usernames in a sorted order
+    return currentUserUsername.compareTo(partnerUsername) < 0
+        ? '$currentUserUsername-$partnerUsername'
+        : '$partnerUsername-$currentUserUsername';
+  }
+
+  void _sendMessage() async {
+    final messageText = _messageController.text.trim();
+    if (messageText.isNotEmpty) {
+      final currentUserUsername = _currentUserUsername;
+      if (currentUserUsername == null) {
+        // Handle case where user username is not available
+        return;
+      }
+
+      try {
+        final chatId = await getChatId();
+        final chatDocRef = FirebaseFirestore.instance.collection('chats').doc(
+            chatId);
+
+        // Fetch the document to ensure it exists and get the current messages
+        final docSnapshot = await chatDocRef.get();
+        if (!docSnapshot.exists) {
+          // Document does not exist, create it with an empty messages array
+          await chatDocRef.set({
+            'messages': [], // Initialize with an empty messages array
+          });
+        }
+
+        // Append the new message to the existing messages array
+        await chatDocRef.update({
+          'messages': FieldValue.arrayUnion([
+            {
+              'senderId': currentUserUsername,
+              'message': messageText,
+              'timestamp': Timestamp.now(), // Using Timestamp for Firestore
+              'imageUrl': '', // Assuming empty string if not provided
+              'read': false,
+            },
+          ]),
+        });
+
+        _messageController.clear();
+      } catch (e) {
+        print('Error sending message: $e');
+      }
+    }
+  }
+}
+  class MessageBubble extends StatelessWidget {
   final bool isUser;
   final String message;
   final String timestamp;
   final String profileImage;
+  final bool read;
 
   const MessageBubble({
     Key? key,
@@ -163,55 +326,57 @@ class MessageBubble extends StatelessWidget {
     required this.message,
     required this.timestamp,
     required this.profileImage,
+    required this.read,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-      children: [
-        if (!isUser) ...[
-          CircleAvatar(
-            backgroundImage: AssetImage(profileImage),
-            radius: 25, // Increased size
-          ),
-          SizedBox(width: 10),
-        ],
-        Column(
-          crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 8.0),
-              padding: const EdgeInsets.all(16.0), // Increased size
-              decoration: BoxDecoration(
-                color: isUser ? Color.fromRGBO(255, 173, 231, 1) : Color.fromRGBO(186, 146, 224, 1),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
-                  bottomLeft: isUser ? Radius.circular(12) : Radius.circular(0),
-                  bottomRight: isUser ? Radius.circular(0) : Radius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+      child: Row(
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          if (!isUser) ...[
+            CircleAvatar(
+              backgroundImage: NetworkImage(profileImage),
+            ),
+            SizedBox(width: 8.0),
+          ],
+          Column(
+            crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: EdgeInsets.all(10.0),
+                decoration: BoxDecoration(
+                  color: isUser ? Colors.blue : Colors.grey[700],
+                  borderRadius: BorderRadius.circular(15.0),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      message,
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                    SizedBox(height: 4.0),
+                    Text(
+                      timestamp,
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ],
                 ),
               ),
-              child: Text(
-                message,
-                style: TextStyle(color: Colors.white, fontSize: 16, fontFamily: 'Nunito'),
-              ),
-            ),
-            Text(
-              timestamp,
-              style: TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'Nunito'),
-            ),
-          ],
-        ),
-        if (isUser) ...[
-          SizedBox(width: 10),
-          CircleAvatar(
-            backgroundImage: AssetImage(profileImage),
-            radius: 25, // Increased size
+              if (read) ...[
+                SizedBox(height: 4.0),
+                Text(
+                  'Read',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+              ],
+            ],
           ),
         ],
-      ],
+      ),
     );
   }
 }

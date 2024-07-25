@@ -1,114 +1,11 @@
-import 'dart:io';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:muiscprofileapp/pages/livesessionUi.dart';
+ // Import the LiveSession page
 
-class CreatePost extends StatefulWidget {
-  const CreatePost({Key? key}) : super(key: key);
+class HostJam extends StatelessWidget {
+  final String channelName; // Add this line to accept the channel name
 
-  @override
-  _CreatePostState createState() => _CreatePostState();
-}
-
-class _CreatePostState extends State<CreatePost> {
-  List<PlatformFile> _selectedFiles = [];
-  TextEditingController _descriptionController = TextEditingController();
-  TextEditingController _tagsController = TextEditingController();
-
-  Future<void> _pickFiles() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.media,
-      allowMultiple: true,
-    );
-
-    if (result != null) {
-      setState(() {
-        _selectedFiles = result.files;
-      });
-    }
-  }
-
-  Future<String> _getCurrentUsername() async {
-    // Fetch current user from Firebase Authentication
-    User? user = FirebaseAuth.instance.currentUser;
-
-    // Fetch username from Firestore based on the current user's ID
-    if (user != null) {
-      DocumentSnapshot userDoc =
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      return userDoc['username'];
-    } else {
-      throw Exception('User not found');
-    }
-  }
-
-  Future<void> _uploadFilesAndCreatePost() async {
-    List<String> uploadedFileUrls = [];
-
-    // Upload files to Firebase Storage
-    for (PlatformFile file in _selectedFiles) {
-      try {
-        firebase_storage.Reference ref = firebase_storage.FirebaseStorage.instance
-            .ref()
-            .child('posts')
-            .child(DateTime.now().millisecondsSinceEpoch.toString());
-        firebase_storage.UploadTask uploadTask = ref.putFile(File(file.path!));
-        firebase_storage.TaskSnapshot taskSnapshot = await uploadTask;
-        String downloadUrl = await taskSnapshot.ref.getDownloadURL();
-        uploadedFileUrls.add(downloadUrl);
-      } catch (e) {
-        print('Error uploading file: $e');
-        // Handle error as needed
-      }
-    }
-
-    // Get current user's username
-    String username;
-    try {
-      username = await _getCurrentUsername();
-    } catch (e) {
-      print('Error fetching username: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to get username. Please try again later.')),
-      );
-      return;
-    }
-
-    // Create post document in Firestore
-    try {
-      CollectionReference postsRef = FirebaseFirestore.instance.collection('posts');
-      await postsRef.add({
-        'username': username, // Include username in the post document
-        'description': _descriptionController.text.trim(),
-        'tags': _tagsController.text.split(',').map((tag) => tag.trim()).toList(),
-        'files': uploadedFileUrls,
-        'createdAt': Timestamp.now(),
-        'likes': 0,
-        // Add more fields as needed, such as createdBy
-      });
-
-      // Clear fields after successful upload
-      _descriptionController.clear();
-      _tagsController.clear();
-      setState(() {
-        _selectedFiles.clear();
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Post created successfully')),
-      );
-
-    } catch (e) {
-      print('Error creating post: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create post. Please try again later.')),
-      );
-      // Handle error as needed
-    }
-  }
+  const HostJam({super.key, required this.channelName}); // Add this parameter to the constructor
 
   @override
   Widget build(BuildContext context) {
@@ -137,12 +34,14 @@ class _CreatePostState extends State<CreatePost> {
                   children: [
                     const SizedBox(height: 40),
                     const Text(
-                      'Create Post',
+                      'Host a Jam Session',
                       style: TextStyle(color: Colors.white, fontSize: 24),
                     ),
                     const SizedBox(height: 20),
                     GestureDetector(
-                      onTap: _pickFiles,
+                      onTap: () {
+                        // Handle file picking here
+                      },
                       child: Container(
                         height: 350,
                         width: double.infinity,
@@ -154,13 +53,13 @@ class _CreatePostState extends State<CreatePost> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: const [
                             Icon(
-                              Icons.cloud_upload,
+                              Icons.music_note,
                               size: 60,
                               color: Colors.white,
                             ),
                             SizedBox(height: 10),
                             Text(
-                              'Tap to Upload Images/Videos',
+                              'Tap to Upload Music or Video',
                               style: TextStyle(color: Colors.white),
                             ),
                           ],
@@ -172,22 +71,22 @@ class _CreatePostState extends State<CreatePost> {
                     const SizedBox(height: 30),
                     _buildTextFieldWithTitle(
                       title: 'Description',
-                      hintText: 'Write something...',
-                      controller: _descriptionController,
+                      hintText: 'Write something about the jam session...',
+                      controller: TextEditingController(), // Use appropriate controller
                       backgroundColor: Color(0xFFfc92dd),
                     ),
                     const SizedBox(height: 30),
                     _buildTextFieldWithTitle(
                       title: 'Add Tags',
                       hintText: 'Enter tags separated by commas...',
-                      controller: _tagsController,
+                      controller: TextEditingController(), // Use appropriate controller
                       backgroundColor: Color(0xFFfc92dd),
                       withIcon: true,
                     ),
                     const SizedBox(height: 30),
                     _buildTagPeopleSection(),
                     const SizedBox(height: 40),
-                    _buildShareButton(),
+                    _buildHostButton(context), // Pass the BuildContext to the button
                     const SizedBox(height: 30),
                   ],
                 ),
@@ -259,41 +158,38 @@ class _CreatePostState extends State<CreatePost> {
   }
 
   Widget _buildFileGridView() {
-    return _selectedFiles.isNotEmpty
-        ? Container(
+    // Placeholder for file grid view
+    return Container(
       height: 200,
       child: GridView.builder(
-        itemCount: _selectedFiles.length,
+        itemCount: 0, // Update as needed
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           crossAxisSpacing: 8.0,
           mainAxisSpacing: 8.0,
         ),
         itemBuilder: (context, index) {
-          final file = _selectedFiles[index];
           return Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8.0),
-              image: DecorationImage(
-                image: FileImage(File(file.path!)),
-                fit: BoxFit.cover,
-              ),
+              color: Colors.grey, // Placeholder color
             ),
           );
         },
       ),
-    )
-        : const Center(
-      child: Text(
-        'No files selected',
-        style: TextStyle(color: Colors.white),
-      ),
     );
   }
 
-  Widget _buildShareButton() {
+  Widget _buildHostButton(BuildContext context) {
     return GestureDetector(
-      onTap: _uploadFilesAndCreatePost,
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LiveSession(channelName: channelName),
+          ),
+        );
+      },
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -303,7 +199,7 @@ class _CreatePostState extends State<CreatePost> {
         ),
         child: Center(
           child: Text(
-            'Share',
+            'Host Jam',
             style: TextStyle(color: Colors.white, fontSize: 18),
           ),
         ),

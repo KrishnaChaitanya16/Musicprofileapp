@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:muiscprofileapp/pages/Homepage.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({Key? key});
+  final bool isOwnProfile;
+
+  const ProfileScreen({Key? key, this.isOwnProfile = true}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -100,28 +102,29 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 30),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    // Handle edit profile button press
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color.fromRGBO(184, 55, 134, 1),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
+                if (isOwnProfile) // Show the Edit Profile button only if it's the current user's profile
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      // Handle edit profile button press
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color.fromRGBO(184, 55, 134, 1),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
                     ),
-                  ),
-                  icon: Icon(Icons.edit, color: Colors.white),
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    child: Text(
-                      'Edit Profile',
-                      style: GoogleFonts.nunito(
-                        fontSize: 16,
-                        color: Colors.white,
+                    icon: Icon(Icons.edit, color: Colors.white),
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      child: Text(
+                        'Edit Profile',
+                        style: GoogleFonts.nunito(
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

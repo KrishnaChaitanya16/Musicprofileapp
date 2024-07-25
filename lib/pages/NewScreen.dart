@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:muiscprofileapp/pages/CreatePost.dart';
+import 'package:muiscprofileapp/pages/HostJam.dart';
+import 'package:muiscprofileapp/pages/ScheduleJam.dart';
 import 'package:provider/provider.dart';
 import 'package:muiscprofileapp/pages/ChatPage.dart';
 import 'package:muiscprofileapp/pages/Homepage.dart';
@@ -115,7 +117,7 @@ class _NewScreenState extends State<NewScreen> {
                     child: Center(
                       child: ElevatedButton(
                         onPressed: () {
-                          // Define your onPressed action here
+                          Navigator.push(context, MaterialPageRoute(builder: (context)=> HostJam(channelName: "musicprofileapp",)));
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Color.fromRGBO(184, 55, 134, 1),
@@ -152,7 +154,7 @@ class _NewScreenState extends State<NewScreen> {
                     child: Center(
                       child: ElevatedButton(
                         onPressed: () {
-                          // Define your onPressed action here
+                        Navigator.push(context, MaterialPageRoute(builder: (context)=> ScheduleJam(channelName: "musicprofileapp")));
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Color.fromRGBO(184, 55, 134, 1),
