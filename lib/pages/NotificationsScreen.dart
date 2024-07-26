@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:muiscprofileapp/pages/ChatPage.dart';
+import 'package:muiscprofileapp/pages/CirclesChatPage.dart';
 import 'package:muiscprofileapp/pages/Homepage.dart';
 import 'package:muiscprofileapp/pages/NewScreen.dart';
 import 'package:muiscprofileapp/pages/ProfileScreen.dart';
@@ -507,7 +508,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (context) => ChatPage(chatId: circleId),
+                                              builder: (context) => CircleChatPage(circleId: circleId),
                                             ),
                                           );
                                         },
