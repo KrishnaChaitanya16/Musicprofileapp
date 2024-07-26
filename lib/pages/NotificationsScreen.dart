@@ -80,6 +80,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       print('Error updating unread count: $e');
     }
   }
+
+
   Future<void> updateLastMessage(String circleId, String message) async {
     try {
       final circleRef = FirebaseFirestore.instance.collection('circles').doc(circleId);
@@ -92,6 +94,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       print('Error updating last message: $e');
     }
   }
+  Future<Map<String, dynamic>?> _fetchLastMessage(String circleId) async {
+    try {
+      // Fetch messages for the given circle and sort by timestamp in descending order
+      final messagesQuery = FirebaseFirestore.instance
+          .collection('circles')
+          .doc(circleId)
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
+          .limit(1) // Get only the most recent message
+          .get();
+
+      final messagesSnapshot = await messagesQuery;
+
+      if (messagesSnapshot.docs.isNotEmpty) {
+        // Return the data of the most recent message
+        return messagesSnapshot.docs.first.data() as Map<String, dynamic>;
+      }
+
+      return null; // Return null if no messages are found
+    } catch (e) {
+      // Handle errors (e.g., log the error)
+      print('Error fetching last message: $e');
+      return null;
+    }
+  }
+
   Future<void> resetUnreadCount(String circleId) async {
     try {
       final circleRef = FirebaseFirestore.instance.collection('circles').doc(circleId);
@@ -121,6 +149,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
     return null;
   }
+  Future<int> _fetchUnreadCount(String circleId) async {
+    // Ensure currentUserId is available
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid; // Implement fetchCurrentUserId to get the current user ID
+
+    // Fetch the current username using the currentUserId
+    final currentUsername = await fetchUsername(currentUserId!);
+
+    // Fetch unread messages
+    final unreadMessagesQuery = await FirebaseFirestore.instance
+        .collection('circles')
+        .doc(circleId)
+        .collection('messages')
+        .where('read', isEqualTo: false)
+        .where('senderId', isNotEqualTo: currentUsername) // Only count messages from other users
+        .get();
+
+    return unreadMessagesQuery.docs.length;
+  }
+
 
   void _onCirclesSearchTextChanged(String text) {
     setState(() {
@@ -146,6 +193,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return [];
     }
   }
+
 
 
   void _onClearCirclesSearch() {
@@ -361,87 +409,108 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           ),
                         ),
                         Expanded(
-                          child: StreamBuilder<QuerySnapshot>(
-                            stream: FirebaseFirestore.instance.collection('circles').snapshots(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState == ConnectionState.waiting) {
+                          child: FutureBuilder<String?>(
+                            future: fetchUsername(currentUserId!), // Await fetchUsername to get currentUsername
+                            builder: (context, usernameSnapshot) {
+                              if (usernameSnapshot.connectionState == ConnectionState.waiting) {
                                 return Center(child: CircularProgressIndicator());
                               }
 
-                              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                                return Center(child: Text('No circles available', style: TextStyle(color: Colors.white)));
+                              if (usernameSnapshot.hasError) {
+                                return Center(child: Text('Error fetching username', style: TextStyle(color: Colors.red)));
                               }
 
-                              final circles = snapshot.data!.docs;
+                              if (!usernameSnapshot.hasData || usernameSnapshot.data == null) {
+                                return Center(child: Text('No username data', style: TextStyle(color: Colors.white)));
+                              }
 
-                              // Process circles and sort by unreadCount if needed
-                              final sortedCircles = circles.map((doc) {
-                                final circle = doc.data() as Map<String, dynamic>;
-                                return {
-                                  'circleId': circle['circleId'],
-                                  'name': circle['name'],
-                                  'description': circle['description'],
-                                  'imageUrl': circle['imageUrl'],
-                                  'unreadCount': circle['unreadCount'] ?? 0,
-                                  'lastMessage': circle['lastMessage'],
-                                  'timestamp': circle['timestamp'] as Timestamp,
-                                };
-                              }).toList()
-                                ..sort((a, b) {
-                                  final unreadCountA = a['unreadCount'] as int?;
-                                  final unreadCountB = b['unreadCount'] as int?;
-                                  return (unreadCountB ?? 0).compareTo(unreadCountA ?? 0); // Unread circles first
-                                });
+                              final currentUsername = usernameSnapshot.data!;
 
-                              return ListView.builder(
-                                itemCount: sortedCircles.length,
-                                itemBuilder: (context, index) {
-                                  final circle = sortedCircles[index];
-                                  final name = circle['name'] as String;
-                                  final description = circle['description'] as String;
-                                  final imageUrl = circle['imageUrl'] as String;
-                                  final unreadCount = circle['unreadCount'] as int;
-                                  final lastMessage = circle['lastMessage'] as String?;
-                                  final timestamp = circle['timestamp'] as Timestamp;
+                              return StreamBuilder<QuerySnapshot>(
+                                stream: FirebaseFirestore.instance
+                                    .collection('circles')
+                                    .where('participants', arrayContains: currentUsername) // Filter by current user's participation
+                                    .snapshots(),
+                                builder: (context, circlesSnapshot) {
+                                  if (circlesSnapshot.connectionState == ConnectionState.waiting) {
+                                    return Center(child: CircularProgressIndicator());
+                                  }
 
-                                  return ListTile(
-                                    contentPadding: EdgeInsets.all(8),
-                                    leading: CircleAvatar(
-                                      backgroundImage: NetworkImage(imageUrl),
-                                    ),
-                                    title: Text(name, style: TextStyle(color: Colors.white)),
-                                    subtitle: RichText(
-                                      text: TextSpan(
-                                        children: [
-                                          if (unreadCount > 0)
-                                            TextSpan(
-                                              text: '$unreadCount New message${unreadCount > 1 ? 's' : ''} ',
-                                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                            ),
-                                          TextSpan(
-                                            text: ' ${lastMessage ?? ''} ',
-                                            style: TextStyle(color: Colors.grey[400]),
-                                          ),
-                                          TextSpan(
-                                            text: ' ${formatTimeAgo(timestamp)} ',
-                                            style: TextStyle(color: Colors.grey[600]),
-                                          ),
-                                          if (unreadCount > 0)
-                                            WidgetSpan(
-                                              child: CircleAvatar(
-                                                radius: 4,
-                                                backgroundColor: Color(0xFFF78FD8), // RGB(247, 143, 218)
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => ChatPage(chatId: name,),
+                                  if (circlesSnapshot.hasError) {
+                                    return Center(child: Text('Error loading circles', style: TextStyle(color: Colors.red)));
+                                  }
+
+                                  if (!circlesSnapshot.hasData || circlesSnapshot.data!.docs.isEmpty) {
+                                    return Center(child: Text('No circles available', style: TextStyle(color: Colors.white)));
+                                  }
+
+                                  final circles = circlesSnapshot.data!.docs;
+
+                                  // Function to get the last message from the messages array
+                                  String? getLastMessage(List<dynamic>? messages) {
+                                    if (messages == null || messages.isEmpty) {
+                                      return null;
+                                    }
+
+                                    // Find the most recent message
+                                    var latestMessage = messages.reduce((a, b) {
+                                      final timestampA = (a['timestamp'] as Timestamp?) ?? Timestamp.now();
+                                      final timestampB = (b['timestamp'] as Timestamp?) ?? Timestamp.now();
+                                      return timestampA.compareTo(timestampB) > 0 ? a : b;
+                                    });
+
+                                    return latestMessage['message'] as String?;
+                                  }
+
+                                  return ListView.builder(
+                                    itemCount: circles.length,
+                                    itemBuilder: (context, index) {
+                                      final circleDoc = circles[index];
+                                      final circle = circleDoc.data() as Map<String, dynamic>;
+                                      final circleId = circleDoc.id;
+
+                                      final name = circle['name'] as String;
+                                      final description = circle['description'] as String;
+                                      final imageUrl = circle['imageUrl'] as String;
+                                      final messages = circle['messages'] as List<dynamic>?;
+
+                                      final lastMessage = getLastMessage(messages);
+                                      final timestamp = messages?.isNotEmpty ?? false
+                                          ? (messages!.reduce((a, b) {
+                                        final timestampA = (a['timestamp'] as Timestamp?) ?? Timestamp.now();
+                                        final timestampB = (b['timestamp'] as Timestamp?) ?? Timestamp.now();
+                                        return timestampA.compareTo(timestampB) > 0 ? a : b;
+                                      })['timestamp'] as Timestamp)
+                                          : Timestamp.now();
+
+                                      return ListTile(
+                                        contentPadding: EdgeInsets.all(8),
+                                        leading: CircleAvatar(
+                                          backgroundImage: NetworkImage(imageUrl),
                                         ),
+                                        title: Text(name, style: TextStyle(color: Colors.white)),
+                                        subtitle: RichText(
+                                          text: TextSpan(
+                                            children: [
+                                              TextSpan(
+                                                text: ' ${lastMessage ?? ''} ',
+                                                style: TextStyle(color: Colors.grey[400]),
+                                              ),
+                                              TextSpan(
+                                                text: ' ${formatTimeAgo(timestamp)} ',
+                                                style: TextStyle(color: Colors.grey[600]),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => ChatPage(chatId: circleId),
+                                            ),
+                                          );
+                                        },
                                       );
                                     },
                                   );
@@ -449,7 +518,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               );
                             },
                           ),
-                        ),
+                        )
 
                       ],
                     ),
@@ -585,7 +654,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                         context,
                                         MaterialPageRoute(
                                           builder: (context) => ChatPage(
-                                            chatId: chatId, // Pass the unique chat document ID
+                                            chatId: chatId,
+                                            // Pass the unique chat document ID
                                           ),
                                         ),
                                       );

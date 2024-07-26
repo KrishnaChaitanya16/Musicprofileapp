@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class ChatPage extends StatefulWidget {
-  final String chatId;
+class CircleChatPage extends StatefulWidget {
+  final String circleId;
 
-  const ChatPage({
+  const CircleChatPage({
     Key? key,
-    required this.chatId,
+    required this.circleId,
   }) : super(key: key);
 
   @override
-  _ChatPageState createState() => _ChatPageState();
+  _CircleChatPageState createState() => _CircleChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _CircleChatPageState extends State<CircleChatPage> {
   final _messageController = TextEditingController();
   String? _currentUserUsername;
 
@@ -51,22 +51,22 @@ class _ChatPageState extends State<ChatPage> {
       }
 
       try {
-        // Get the chatId for the current chat
-        final chatId = widget.chatId;
-        final chatDocRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
+        // Get the circleId for the current chat
+        final circleId = widget.circleId;
+        final circleDocRef = FirebaseFirestore.instance.collection('circles').doc(circleId);
 
         // Check if the document exists
-        final docSnapshot = await chatDocRef.get();
+        final docSnapshot = await circleDocRef.get();
         if (!docSnapshot.exists) {
-          print('Chat document does not exist. Creating a new one.');
+          print('Circle document does not exist. Creating a new one.');
           // Create a new document with an empty messages array if it doesn't exist
-          await chatDocRef.set({
+          await circleDocRef.set({
             'messages': [],
           });
         }
 
         // Append the new message to the existing messages array
-        await chatDocRef.update({
+        await circleDocRef.update({
           'messages': FieldValue.arrayUnion([
             {
               'senderId': currentUserUsername,
@@ -125,11 +125,11 @@ class _ChatPageState extends State<ChatPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.chatId,
+                          widget.circleId,
                           style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          'Chat Partner',
+                          'Circle Chat',
                           style: TextStyle(color: Colors.white70, fontSize: 14),
                         ),
                       ],
@@ -159,8 +159,8 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                   child: StreamBuilder<DocumentSnapshot>(
                     stream: FirebaseFirestore.instance
-                        .collection('chats')
-                        .doc(widget.chatId)
+                        .collection('circles')
+                        .doc(widget.circleId)
                         .snapshots(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -180,8 +180,8 @@ class _ChatPageState extends State<ChatPage> {
                         return Center(child: Text('No messages available', style: TextStyle(color: Colors.white)));
                       }
 
-                      final chatDoc = snapshot.data!;
-                      final messages = chatDoc['messages'] as List<dynamic>? ?? [];
+                      final circleDoc = snapshot.data!;
+                      final messages = circleDoc['messages'] as List<dynamic>? ?? [];
 
                       return ListView.builder(
                         itemCount: messages.length,
@@ -308,43 +308,40 @@ class MessageBubble extends StatelessWidget {
       child: Row(
         mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          if (!isUser) ...[
-            CircleAvatar(
-              backgroundImage: NetworkImage(profileImage),
-            ),
-            SizedBox(width: 8.0),
-          ],
-          Container(
-            padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
-            decoration: BoxDecoration(
-              color: isUser ? Colors.pink : Colors.white,
-              borderRadius: BorderRadius.circular(20.0),
-            ),
-            child: Column(
-              crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                Text(
-                  message,
-                  style: TextStyle(
-                    color: isUser ? Colors.white : Colors.black,
-                    fontFamily: 'Nunito',
-                  ),
+          if (!isUser) CircleAvatar(backgroundImage: NetworkImage(profileImage)),
+          SizedBox(width: 8.0),
+          Column(
+            crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: EdgeInsets.all(16.0),
+                decoration: BoxDecoration(
+                  color: isUser ? Colors.pink : Colors.grey[800],
+                  borderRadius: BorderRadius.circular(12.0),
                 ),
-                SizedBox(height: 4.0),
-                Text(
-                  timestamp,
-                  style: TextStyle(
-                    color: isUser ? Colors.white70 : Colors.black54,
-                    fontFamily: 'Nunito',
-                    fontSize: 12.0,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      message,
+                      style: TextStyle(color: Colors.white, fontFamily: 'Nunito'),
+                    ),
+                    if (read) ...[
+                      SizedBox(height: 8.0),
+                      Text(
+                        'Read',
+                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                      ),
+                    ],
+                  ],
                 ),
-                if (read) ...[
-                  SizedBox(height: 4.0),
-                  Icon(Icons.check_circle, color: isUser ? Colors.white : Colors.black54, size: 16.0),
-                ],
-              ],
-            ),
+              ),
+              SizedBox(height: 4.0),
+              Text(
+                timestamp,
+                style: TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ],
           ),
         ],
       ),
