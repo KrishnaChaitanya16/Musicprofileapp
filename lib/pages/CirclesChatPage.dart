@@ -289,7 +289,7 @@ class MessageBubble extends StatelessWidget {
   final bool isUser;
   final String message;
   final String timestamp;
-  final String profileImage;
+  final String profileImage; // Assuming this is the URL or path to the profile image
   final bool read;
 
   const MessageBubble({
@@ -303,12 +303,19 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Use a default placeholder image if profileImage is empty or null
+    final displayProfileImage = profileImage.isNotEmpty ? profileImage : 'assets/default_profile.png';
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
       child: Row(
         mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          if (!isUser) CircleAvatar(backgroundImage: NetworkImage(profileImage)),
+          if (!isUser)
+            CircleAvatar(
+              backgroundImage: NetworkImage(displayProfileImage),
+              radius: 20.0, // Adjust the radius as needed
+            ),
           SizedBox(width: 8.0),
           Column(
             crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -316,21 +323,26 @@ class MessageBubble extends StatelessWidget {
               Container(
                 padding: EdgeInsets.all(16.0),
                 decoration: BoxDecoration(
-                  color: isUser ? Colors.pink : Colors.grey[800],
-                  borderRadius: BorderRadius.circular(12.0),
+                  color: isUser ? Color.fromARGB(255, 255, 173, 231) : Color.fromARGB(255, 186, 146, 224),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(12.0),
+                    topRight: Radius.circular(12.0),
+                    bottomLeft: isUser ? Radius.circular(12.0) : Radius.circular(0.0),
+                    bottomRight: isUser ? Radius.circular(0.0) : Radius.circular(12.0),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       message,
-                      style: TextStyle(color: Colors.white, fontFamily: 'Nunito'),
+                      style: TextStyle(color: Colors.black, fontFamily: 'Nunito'),
                     ),
                     if (read) ...[
                       SizedBox(height: 8.0),
                       Text(
                         'Read',
-                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                        style: TextStyle(color: Colors.black54, fontSize: 12),
                       ),
                     ],
                   ],
@@ -339,7 +351,7 @@ class MessageBubble extends StatelessWidget {
               SizedBox(height: 4.0),
               Text(
                 timestamp,
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+                style: TextStyle(color: Colors.black54, fontSize: 12),
               ),
             ],
           ),

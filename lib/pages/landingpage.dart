@@ -23,6 +23,7 @@ class Landingpage extends StatelessWidget {
         child: Center(
           child: Stack(
             children: [
+              // Background content
               Positioned(
                 top: 150,
                 left: 90,
@@ -31,6 +32,35 @@ class Landingpage extends StatelessWidget {
                   style: GoogleFonts.nunito(color: Colors.white, fontSize: 25),
                 ),
               ),
+              // SymJam text and music icon on top
+              Positioned(
+                top: 50, // Adjust as needed
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset(
+                        'lib/icons/music.png', // Ensure this path is correct
+                        width: 50,
+                        height: 50,
+                        color: Colors.white,
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        'SymJam',
+                        style: GoogleFonts.nunito(
+                          color: Colors.white,
+                          fontSize: 40,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Sign Up button
               Positioned(
                 top: 230,
                 right: 30,
@@ -50,6 +80,7 @@ class Landingpage extends StatelessWidget {
                   ),
                 ),
               ),
+              // Sign In button
               Positioned(
                 bottom: 250,
                 left: 40,
@@ -69,6 +100,7 @@ class Landingpage extends StatelessWidget {
                   ),
                 ),
               ),
+              // Google Sign-In button
               Positioned(
                 bottom: 20,
                 left: 20,
@@ -97,7 +129,7 @@ class Landingpage extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Image.asset(
-                            'lib/icons/google.png',
+                            'lib/icons/google.png', // Ensure this path is correct
                             height: 30,
                           ),
                           SizedBox(width: 15),

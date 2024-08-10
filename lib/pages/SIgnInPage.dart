@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:muiscprofileapp/pages/Homepage.dart';
 import 'package:muiscprofileapp/pages/SkillsPage.dart';
 
 class SignInPage extends StatefulWidget {
@@ -206,7 +207,7 @@ class _SignInPageState extends State<SignInPage> {
       // Navigate to the next page after successful sign-in
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => SkillsPage()),
+        MaterialPageRoute(builder: (context) => HomePage()),
       );
     } catch (e) {
       // Handle sign-in errors here

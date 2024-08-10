@@ -50,6 +50,10 @@ dependencies:
   agora_rtc_engine:
   permission_handler:
   intl:
+  image_picker:
+  image_cropper:
+  just_audio:
+  camera:
 
 dev_dependencies:
   flutter_test:

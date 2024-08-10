@@ -51,34 +51,29 @@ class _ChatPageState extends State<ChatPage> {
       }
 
       try {
-        // Get the chatId for the current chat
-        final chatId = widget.chatId;
-        final chatDocRef = FirebaseFirestore.instance.collection('chats').doc(chatId);
+        final chatDocRef = FirebaseFirestore.instance.collection('chats').doc(widget.chatId);
 
         // Check if the document exists
         final docSnapshot = await chatDocRef.get();
         if (!docSnapshot.exists) {
           print('Chat document does not exist. Creating a new one.');
-          // Create a new document with an empty messages array if it doesn't exist
           await chatDocRef.set({
             'messages': [],
           });
         }
 
-        // Append the new message to the existing messages array
         await chatDocRef.update({
           'messages': FieldValue.arrayUnion([
             {
               'senderId': currentUserUsername,
               'message': messageText,
-              'timestamp': Timestamp.now(), // Using Timestamp for Firestore
-              'imageUrl': '', // Assuming empty string if not provided
+              'timestamp': Timestamp.now(),
+              'imageUrl': '',
               'read': false,
             },
           ]),
         });
 
-        // Clear the message input field after sending
         _messageController.clear();
       } catch (e) {
         print('Error sending message: $e');
@@ -199,7 +194,7 @@ class _ChatPageState extends State<ChatPage> {
                             isUser: isUser,
                             message: messageText,
                             timestamp: timestamp != null ? formatTimeAgo(timestamp) : 'Unknown time',
-                            profileImage: imageUrl,
+                            senderUsername: senderUsername,
                             read: read,
                           );
                         },
@@ -245,7 +240,7 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.pink,
+                      color: Color.fromRGBO(252, 146, 221, 1),
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
@@ -289,7 +284,7 @@ class MessageBubble extends StatelessWidget {
   final bool isUser;
   final String message;
   final String timestamp;
-  final String profileImage;
+  final String senderUsername;
   final bool read;
 
   const MessageBubble({
@@ -297,57 +292,145 @@ class MessageBubble extends StatelessWidget {
     required this.isUser,
     required this.message,
     required this.timestamp,
-    required this.profileImage,
+    required this.senderUsername,
     required this.read,
   }) : super(key: key);
 
+  Future<String> _fetchProfileImageUrl(String username) async {
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .where('username', isEqualTo: username)
+          .limit(1)
+          .get();
+
+      if (userDoc.docs.isNotEmpty) {
+        final profileImageUrl = userDoc.docs.first.data()['imageUrl'] as String?;
+        // Return the profile image URL if it's not null, otherwise return the placeholder image
+        return profileImageUrl ?? 'assets/default_profile.png';
+      } else {
+        return 'assets/default_profile.png'; // Placeholder image
+      }
+    } catch (e) {
+      print('Error fetching profile image: $e');
+      return 'assets/default_profile.png'; // Placeholder image
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-      child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          if (!isUser) ...[
-            CircleAvatar(
-              backgroundImage: NetworkImage(profileImage),
-            ),
-            SizedBox(width: 8.0),
-          ],
-          Container(
-            padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
-            decoration: BoxDecoration(
-              color: isUser ? Colors.pink : Colors.white,
-              borderRadius: BorderRadius.circular(20.0),
-            ),
-            child: Column(
-              crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                Text(
-                  message,
-                  style: TextStyle(
-                    color: isUser ? Colors.white : Colors.black,
-                    fontFamily: 'Nunito',
+    return FutureBuilder<String>(
+      future: _fetchProfileImageUrl(senderUsername),
+      builder: (context, snapshot) {
+        String profileImage = 'assets/default_profile.png'; // Placeholder image
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasData) {
+            profileImage = snapshot.data!;
+          } else {
+            print('Error fetching profile image: ${snapshot.error}');
+          }
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              // User message
+              if (isUser) ...[
+                Container(
+                  padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
+                  decoration: BoxDecoration(
+                    color: Color.fromARGB(255, 255, 173, 231), // Color for user message
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20.0),
+                      topRight: Radius.circular(20.0),
+                      bottomLeft: Radius.circular(20.0),
+                      bottomRight: Radius.circular(0.0),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        message,
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontFamily: 'Nunito',
+                        ),
+                      ),
+                      SizedBox(height: 4.0),
+                      Text(
+                        timestamp,
+                        style: TextStyle(
+                          color: Colors.black54,
+                          fontFamily: 'Nunito',
+                          fontSize: 12.0,
+                        ),
+                      ),
+                      if (read) ...[
+                        SizedBox(height: 4.0),
+                        Icon(Icons.check_circle, color: Colors.black54, size: 16.0),
+                      ],
+                    ],
                   ),
                 ),
-                SizedBox(height: 4.0),
-                Text(
-                  timestamp,
-                  style: TextStyle(
-                    color: isUser ? Colors.white70 : Colors.black54,
-                    fontFamily: 'Nunito',
-                    fontSize: 12.0,
-                  ),
+                SizedBox(width: 8.0),
+                CircleAvatar(
+                  backgroundImage: NetworkImage(profileImage),
+                  radius: 20.0, // Adjust the radius as needed
                 ),
-                if (read) ...[
-                  SizedBox(height: 4.0),
-                  Icon(Icons.check_circle, color: isUser ? Colors.white : Colors.black54, size: 16.0),
-                ],
               ],
-            ),
+              // Non-user message
+              if (!isUser) ...[
+                CircleAvatar(
+                  backgroundImage: NetworkImage(profileImage),
+                  radius: 20.0, // Adjust the radius as needed
+                ),
+                SizedBox(width: 8.0),
+                Container(
+                  padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
+                  decoration: BoxDecoration(
+                    color: Color.fromARGB(255, 186, 146, 224), // Color for non-user message
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20.0),
+                      topRight: Radius.circular(20.0),
+                      bottomLeft: Radius.circular(0.0),
+                      bottomRight: Radius.circular(20.0),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        message,
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontFamily: 'Nunito',
+                        ),
+                      ),
+                      SizedBox(height: 4.0),
+                      Text(
+                        timestamp,
+                        style: TextStyle(
+                          color: Colors.black54,
+                          fontFamily: 'Nunito',
+                          fontSize: 12.0,
+                        ),
+                      ),
+                      if (read) ...[
+                        SizedBox(height: 4.0),
+                        Icon(Icons.check_circle, color: Colors.black54, size: 16.0),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

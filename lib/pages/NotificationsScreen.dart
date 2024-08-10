@@ -81,6 +81,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       print('Error updating unread count: $e');
     }
   }
+  Future<String?> _fetchProfileImageUrl() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid; // Get the current user's ID
+      if (userId == null) return null;
+
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        final userData = userDoc.data();
+        final imageUrl = userData?['imageUrl'];
+        // Log URL
+        return imageUrl;
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching profile image URL: $e');
+      return null;
+    }
+  }
 
 
   Future<void> updateLastMessage(String circleId, String message) async {
@@ -727,11 +745,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             label: 'Inbox',
           ),
           BottomNavigationBarItem(
-            icon: CircleAvatar(
-              radius: 14,
-              backgroundImage: AssetImage(
-                'lib/icons/profile_image.png',
-              ), // Replace with your profile image asset
+            icon: FutureBuilder<String?>(
+              future: _fetchProfileImageUrl(), // Fetch the profile image URL from Firebase
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return CircleAvatar(
+                    radius: 14,
+                    child: CircularProgressIndicator(), // Loading indicator
+                  );
+                }
+                if (snapshot.hasError || !snapshot.hasData) {
+                  print('Error or no data: ${snapshot.error}'); // Log error
+                  return CircleAvatar(
+                    radius: 14,
+                    backgroundImage: AssetImage('lib/icons/profile_image.png'), // Fallback image
+                  );
+                }
+                final imageUrl = snapshot.data!;
+                return CircleAvatar(
+                  radius: 19,
+                  backgroundImage: NetworkImage(imageUrl), // Use the fetched image URL
+                );
+              },
             ),
             label: 'Profile',
           ),

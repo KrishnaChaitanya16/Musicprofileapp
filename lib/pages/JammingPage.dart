@@ -115,125 +115,192 @@ class _JammingScreenState extends State<JammingScreen> {
                 },
                 children: [
                   // Join Page
-                  Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: 16),
-                                decoration: BoxDecoration(
-                                  color: Color(0xFFc584b3), // Brighter shade
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.search, color: Color(0xFF13001a)), // Icon color
-                                    SizedBox(width: 16),
-                                    Expanded(
-                                      child: TextField(
-                                        style: TextStyle(color: Color(0xFF13001a)),
-                                        decoration: InputDecoration(
-                                          hintText: 'Search Jams...',
-                                          hintStyle: TextStyle(color: Color(0xFF13001a).withOpacity(0.6)),
-                                          border: InputBorder.none,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+              // Inside the Join Page
+              Column(
+              children: [
+              Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Color(0xFFc584b3), // Brighter shade
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.search, color: Color(0xFF13001a)), // Icon color
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: TextField(
+                              style: TextStyle(color: Color(0xFF13001a)),
+                              decoration: InputDecoration(
+                                hintText: 'Search Jams...',
+                                hintStyle: TextStyle(color: Color(0xFF13001a).withOpacity(0.6)),
+                                border: InputBorder.none,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      Expanded(
-                        child: ListView(
-                          children: [
-                            Container(
-                              height: 200,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: 5, // Number of ongoing jams
-                                itemBuilder: (context, index) {
-                                  return Container(
-                                    width: 150,
-                                    margin: EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Color(0xFFc584b3),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('scheduled_jams').snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(child: Text('No scheduled jams available'));
+                  }
+
+                  final jams = snapshot.data!.docs;
+
+                  // Separate ongoing and completed jams
+                  final now = Timestamp.now();
+                  final ongoingJams = jams.where((jam) {
+                    final jamData = jam.data() as Map<String, dynamic>;
+                    final finished = jamData['finished'] ?? false;
+                    final dateTime = jamData['dateTime'] ?? Timestamp.now();
+
+                    return !finished && (dateTime.toDate().isAfter(now.toDate()));
+                  }).toList();
+
+                  final completedJams = jams.where((jam) {
+                    final jamData = jam.data() as Map<String, dynamic>;
+                    final finished = jamData['finished'] ?? false;
+                    final dateTime = jamData['dateTime'] ?? Timestamp.now();
+
+                    return finished || (dateTime.toDate().isBefore(now.toDate()));
+                  }).toList();
+
+                  return ListView(
+                    children: [
+                      Container(
+                        height: 200, // Height for the horizontal list view
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: ongoingJams.length,
+                          itemBuilder: (context, index) {
+                            final jam = ongoingJams[index].data() as Map<String, dynamic>;
+                            final jamTitle = jam['title'] ?? 'No Title';
+                            final jamThumbnail = jam['fileUrl'] ?? 'assets/placeholder_image.jpg';
+
+                            return Container(
+                              width: 200,
+                              margin: EdgeInsets.all(8),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  // Network image or placeholder image
+                                  Image.network(
+                                    jamThumbnail,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Image.asset(
+                                        'assets/placeholder_image.jpg',
+                                        fit: BoxFit.cover,
+                                      );
+                                    },
+                                  ),
+                                  // Overlay with jam title
+                                  Container(
+                                    color: Colors.black54,
                                     child: Center(
                                       child: Text(
-                                        'Ongoing Jam $index',
-                                        style: GoogleFonts.nunito(color: Colors.white),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 8.0),
-                              child: Text(
-                                'Completed Jams',
-                                style: GoogleFonts.nunito(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            ListView.builder(
-                              shrinkWrap: true,
-                              physics: NeverScrollableScrollPhysics(),
-                              itemCount: 5, // Number of completed jams
-                              itemBuilder: (context, index) {
-                                return Container(
-                                  margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFF8f286d), // Background color for completed jams
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: ListTile(
-                                    contentPadding: EdgeInsets.all(8),
-                                    leading: Container(
-                                      width: 60,
-                                      height: 60,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[800],
-                                        borderRadius: BorderRadius.circular(8),
-                                        image: DecorationImage(
-                                          image: AssetImage('assets/thumbnail.jpg'), // Placeholder thumbnail
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    ),
-                                    title: Text(
-                                      'Completed Jam $index',
-                                      style: GoogleFonts.nunito(color: Colors.white),
-                                    ),
-                                    subtitle: Text(
-                                      'Creator Username',
-                                      style: GoogleFonts.nunito(color: Colors.white),
-                                    ),
-                                    trailing: TextButton(
-                                      onPressed: () {
-                                        // Handle view recorded action
-                                      },
-                                      child: Text(
-                                        'View Recorded',
-                                        style: GoogleFonts.nunito(color: Colors.white),
+                                        jamTitle,
+                                        style: GoogleFonts.nunito(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                        textAlign: TextAlign.center,
                                       ),
                                     ),
                                   ),
-                                );
-                              },
-                            ),
-                          ],
+                                ],
+                              ),
+                            );
+                          },
                         ),
                       ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text(
+                          'Completed Jams',
+                          style: GoogleFonts.nunito(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        itemCount: completedJams.length,
+                        itemBuilder: (context, index) {
+                          final jam = completedJams[index].data() as Map<String, dynamic>;
+                          final jamTitle = jam['title'] ?? 'No Title';
+                          final jamThumbnail = jam['fileUrl'] ?? 'assets/placeholder_image.jpg';
+
+                          return Container(
+                            margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                            decoration: BoxDecoration(
+                              color: Color(0xFF8f286d),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: ListTile(
+                              contentPadding: EdgeInsets.all(8),
+                              leading: Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[800],
+                                  borderRadius: BorderRadius.circular(8),
+                                  image: DecorationImage(
+                                    image: NetworkImage(jamThumbnail),
+                                    onError: (error, stackTrace) {
+                                      // Handle error here
+                                    },
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                jamTitle,
+                                style: GoogleFonts.nunito(color: Colors.white),
+                              ),
+                              subtitle: Text(
+                                'Creator Username',
+                                style: GoogleFonts.nunito(color: Colors.white),
+                              ),
+                              trailing: TextButton(
+                                onPressed: () {
+                                  // Handle view recorded action
+                                },
+                                child: Text(
+                                  'View Recorded',
+                                  style: GoogleFonts.nunito(color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     ],
-                  ),
-                  // Review Page
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+
+          // Review Page
                   Column(
                     children: [
                       Padding(

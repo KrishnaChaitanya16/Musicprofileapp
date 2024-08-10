@@ -287,7 +287,7 @@ class _ScheduleJamState extends State<ScheduleJam> {
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.symmetric(horizontal: 10),
               hintText: hintText,
-              hintStyle: const TextStyle(color: Colors.white54),
+              hintStyle: const TextStyle(color: Colors.black54),
               border: InputBorder.none,
             ),
           ),
@@ -313,7 +313,7 @@ class _ScheduleJamState extends State<ScheduleJam> {
                 _selectedDate == null
                     ? 'Select Date'
                     : DateFormat('yyyy-MM-dd').format(_selectedDate!),
-                style: TextStyle(color: Colors.white, fontSize: 18),
+                style: TextStyle(color: Colors.black54, fontSize: 18),
               ),
             ),
           ),
@@ -332,7 +332,7 @@ class _ScheduleJamState extends State<ScheduleJam> {
                 _selectedTime == null
                     ? 'Select Time'
                     : _selectedTime!.format(context),
-                style: TextStyle(color: Colors.white, fontSize: 18),
+                style: TextStyle(color: Colors.black54, fontSize: 18),
               ),
             ),
           ),

@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:muiscprofileapp/pages/ActivityPage.dart';
@@ -71,7 +72,24 @@ class _HomePageState extends State<HomePage> {
         break;
     }
   }
+  Future<String?> _fetchProfileImageUrl() async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid; // Get the current user's ID
+      if (userId == null) return null;
 
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        final userData = userDoc.data();
+        final imageUrl = userData?['imageUrl'];
+        // Log URL
+        return imageUrl;
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching profile image URL: $e');
+      return null;
+    }
+  }
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<BottomNavigationBarProvider>(context);
@@ -101,12 +119,33 @@ class _HomePageState extends State<HomePage> {
               Container(
                 padding: EdgeInsets.fromLTRB(16, 50, 16, 16),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    // Leftmost End
+                    Row(
+                      children: [
+                        Image.asset(
+                          'lib/icons/music.png', // Ensure this path is correct
+                          width: 28,
+                          height: 28,
+                          color: Colors.white, // Adjust color as needed
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'SymJam',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 25,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 16), // Space between the SymJam text and notifications icon
+                      ],
+                    ),
+                    Spacer(), // This pushes the remaining widgets to the rightmost end
                     // Notifications icon
                     GestureDetector(
                       onTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context)=> ActivityPage()));
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => ActivityPage()));
                       },
                       child: Icon(
                         Icons.notifications,
@@ -127,11 +166,10 @@ class _HomePageState extends State<HomePage> {
                       child: Row(
                         children: [
                           GestureDetector(
-                            onTap: (){
-                              Navigator.push(context, MaterialPageRoute(builder: (context)=> JammingScreen()));
+                            onTap: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => JammingScreen()));
                             },
                             child: Container(
-                              
                               width: 24,
                               height: 24,
                               decoration: BoxDecoration(
@@ -155,7 +193,8 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ],
-                ),
+                )
+
               ),
               // Divider
               Divider(
@@ -247,14 +286,32 @@ class _HomePageState extends State<HomePage> {
                 ),
                 // Profile icon
                 BottomNavigationBarItem(
-                  icon: CircleAvatar(
-                    radius: 14,
-                    backgroundImage: AssetImage(
-                      'lib/icons/profile_image.png',
-                    ), // Replace with your profile image asset
+                  icon: FutureBuilder<String?>(
+                    future: _fetchProfileImageUrl(), // Fetch the profile image URL from Firebase
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return CircleAvatar(
+                          radius: 14,
+                          child: CircularProgressIndicator(), // Loading indicator
+                        );
+                      }
+                      if (snapshot.hasError || !snapshot.hasData) {
+                        print('Error or no data: ${snapshot.error}'); // Log error
+                        return CircleAvatar(
+                          radius: 14,
+                          backgroundImage: AssetImage('lib/icons/profile_image.png'), // Fallback image
+                        );
+                      }
+                      final imageUrl = snapshot.data!;
+                      return CircleAvatar(
+                        radius: 19,
+                        backgroundImage: NetworkImage(imageUrl), // Use the fetched image URL
+                      );
+                    },
                   ),
                   label: 'Profile',
                 ),
+
               ],
             ),
           ),
@@ -312,12 +369,30 @@ class _HomePageState extends State<HomePage> {
                       width: 2,
                     ),
                   ),
-                  child: CircleAvatar(
-                    radius: 24,
-                    // Replace with profile image for this item
-                    backgroundImage: AssetImage('lib/icons/profile_image.png'),
+                  child: FutureBuilder<String?>(
+                    future: _fetchProfileImageUrl(), // Fetch the profile image URL
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Center(
+                          child: CircularProgressIndicator(), // Loading indicator
+                        );
+                      }
+                      if (snapshot.hasError || !snapshot.hasData) {
+                        return CircleAvatar(
+                          radius: 24,
+                          backgroundColor: Colors.grey, // Fallback color
+                          backgroundImage: AssetImage('lib/icons/profile_image.png'), // Fallback image
+                        );
+                      }
+                      final imageUrl = snapshot.data!;
+                      return CircleAvatar(
+                        radius: 24,
+                        backgroundImage: NetworkImage(imageUrl), // Use the fetched image URL
+                      );
+                    },
                   ),
                 ),
+
                 SizedBox(width: 12),
                 // Username text
                 Expanded(
@@ -381,17 +456,43 @@ class _HomePageState extends State<HomePage> {
                     size: 28,
                   ),
                   onTap: () {
-                    // Handle like action
-                    likes++; // Increment likes locally
+                    // Increment likes locally
+                    likes++;
+
+                    // Retrieve the URL of the post image from the files array
+                    final files = document['files'] as List<dynamic>? ?? [];
+                    final postImage = files.isNotEmpty ? files[0] : ''; // Assuming the first file is the post image
+
                     // Update Firestore with new likes count
                     FirebaseFirestore.instance
                         .collection('posts')
                         .doc(document.id)
                         .update({'likes': likes})
-                        .then((value) => print('Likes updated successfully'))
-                        .catchError((error) =>
-                        print('Failed to update likes: $error'));
+                        .then((_) {
+                      print('Likes updated successfully');
+
+                      // Log the activity in the activities collection
+                      FirebaseFirestore.instance.collection('activities').add({
+                        'type': 'like',
+                        'description': 'User liked your post',
+                        'postImage': postImage, // Use the retrieved post image URL
+                        'timestamp': FieldValue.serverTimestamp(),
+                        'userId': FirebaseAuth.instance.currentUser?.uid ?? '',
+                        'relatedPostId': document.id,
+                      }).then((_) {
+                        print('Activity logged successfully');
+                      }).catchError((error) {
+                        print('Failed to log activity: $error');
+                      });
+                    })
+                        .catchError((error) {
+                      print('Failed to update likes: $error');
+                    });
+
+                    setState(() {}); // Refresh UI
                   },
+
+
                 ),
                 SizedBox(width: 15), // Decrease gap between icons
                 // Comment icon with comments sheet opening
@@ -522,22 +623,69 @@ class _HomePageState extends State<HomePage> {
                                                         Icons.favorite_border_outlined,
                                                         color: Colors.white,
                                                       ),
-                                                      onPressed: () {
-                                                        // Handle comment like action
+                                                      onPressed: () async {
+                                                        final userId = FirebaseAuth.instance.currentUser?.uid;
+                                                        if (userId == null) {
+                                                          print('User ID is null');
+                                                          return;
+                                                        }
+
+                                                        // Increment the like count locally
                                                         final newLikeCount = commentLikes + 1;
                                                         comment['likes'] = newLikeCount;
-                                                        // Update Firestore
-                                                        FirebaseFirestore.instance
-                                                            .collection('posts')
-                                                            .doc(document.id)
-                                                            .update({
-                                                          'comments': comments
-                                                        }).then((value) =>
-                                                            print('Comment liked successfully'))
-                                                            .catchError((error) =>
-                                                            print('Failed to like comment: $error'));
+
+                                                        try {
+                                                          // Update Firestore with the new like count
+                                                          await FirebaseFirestore.instance.collection('posts').doc(document.id).update({
+                                                            'comments': comments,
+                                                          });
+
+                                                          print('Comment liked successfully');
+
+                                                          // Fetch the post document to retrieve the post image
+                                                          final postDoc = await FirebaseFirestore.instance.collection('posts').doc(document.id).get();
+                                                          if (!postDoc.exists) {
+                                                            print('Post document does not exist');
+                                                            return;
+                                                          }
+
+                                                          final postData = postDoc.data()!;
+                                                          final List<dynamic> files = List.from(postData['files'] ?? []);
+                                                          final postImage = files.isNotEmpty ? files[0] as String : ''; // Get the first file URL
+
+                                                          // Fetch the user's profile picture URL
+                                                          final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+                                                          if (!userDoc.exists) {
+                                                            print('User document does not exist');
+                                                            return;
+                                                          }
+
+                                                          final userData = userDoc.data()!;
+                                                          final profilePic = userData['profilePic'] ?? 'assets/default_profile_pic.png'; // Default profile picture URL
+
+                                                          // Prepare activity data
+                                                          final now = DateTime.now();
+                                                          final activityData = {
+                                                            'userId': userId,
+                                                            'type': 'like',
+                                                            'description': 'Liked your comment on post ${document.id}',
+                                                            'timestamp': Timestamp.fromDate(now),
+                                                            'profilePic': profilePic, // Use the fetched profile picture URL
+                                                            'postImage': postImage, // Use the fetched post image URL
+                                                          };
+
+                                                          // Record activity in Firestore
+                                                          await FirebaseFirestore.instance.collection('activities').add(activityData);
+
+                                                          print('Activity recorded successfully');
+                                                        } catch (error) {
+                                                          print('Failed to like comment or record activity: $error');
+                                                        }
+
                                                         setState(() {}); // Refresh UI
                                                       },
+
+
                                                     ),
                                                     SizedBox(height: 4),
                                                     Text(
