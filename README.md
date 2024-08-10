@@ -72,7 +72,8 @@ Provider**:
 
 - The file picker in the HostJam , Schedule Jam , Create Post sections needs storage permissions to work properly.
 
-- and also to test the Live Jam feature you need to run this app on a mobile instead of emulator .
+- And also to test the Live Jam feature you need to run this app on a mobile instead of emulator .
+- Ensure to run "flutter pub get " before you run the code.
 ## References
 - Icons - Flaticons
 - Images - Google Images
