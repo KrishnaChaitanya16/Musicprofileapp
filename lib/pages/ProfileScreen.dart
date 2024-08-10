@@ -817,33 +817,39 @@ class _SongDialogState extends State<SongDialog> {
                   style: TextStyle(color: Colors.white, fontSize: 20),
                 ),
                 SizedBox(height: 20),
-                // Play button
-                ElevatedButton(
-                  onPressed: () async {
-                    try {
-                      // Stop any ongoing playback before starting a new one
-                      _audioPlayer.stop();
-                      await _audioPlayer.setUrl(widget.songUrl);
-                      _audioPlayer.play();
-                    } catch (e) {
-                      print('Error playing song: $e');
-                    }
-                  },
-                  child: Text('Play'),
-                ),
-                SizedBox(height: 10),
-                // Pause button
-                ElevatedButton(
-                  onPressed: () {
-                    _audioPlayer.pause();
-                  },
-                  child: Text('Pause'),
-                ),
-                SizedBox(height: 10),
-                // Close button
-                ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Close'),
+                // Icon buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Play button
+                    IconButton(
+                      icon: Icon(Icons.play_arrow, color: Colors.white),
+                      onPressed: () async {
+                        try {
+                          // Stop any ongoing playback before starting a new one
+                          _audioPlayer.stop();
+                          await _audioPlayer.setUrl(widget.songUrl);
+                          _audioPlayer.play();
+                        } catch (e) {
+                          print('Error playing song: $e');
+                        }
+                      },
+                    ),
+                    SizedBox(width: 20),
+                    // Pause button
+                    IconButton(
+                      icon: Icon(Icons.pause, color: Colors.white),
+                      onPressed: () {
+                        _audioPlayer.pause();
+                      },
+                    ),
+                    SizedBox(width: 20),
+                    // Close button
+                    IconButton(
+                      icon: Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
                 ),
               ],
             ),

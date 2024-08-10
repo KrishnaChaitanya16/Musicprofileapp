@@ -558,151 +558,161 @@ class _HomePageState extends State<HomePage> {
                                       child: ListView.builder(
                                         itemCount: comments.length,
                                         itemBuilder: (context, index) {
-                                          final Map<String, dynamic> comment =
-                                          comments[index];
-                                          final String commentUsername =
-                                              comment['username'] ?? 'Username';
-                                          final String commentText =
-                                              comment['comment'] ?? '';
-                                          final int commentLikes =
-                                              comment['likes'] ?? 0;
+                                          final Map<String, dynamic> comment = comments[index];
+                                          final String commentUserId = comment['username'] ?? '';
+                                          final String commentText = comment['comment'] ?? '';
+                                          final int commentLikes = comment['likes'] ?? 0;
 
-                                          return Padding(
-                                            padding: EdgeInsets.symmetric(vertical: 8),
-                                            child: Row(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                // User profile image
-                                                Container(
-                                                  width: 40,
-                                                  height: 40,
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    border: Border.all(
-                                                      color: Colors.white,
-                                                      width: 2,
-                                                    ),
-                                                  ),
-                                                  child: CircleAvatar(
-                                                    radius: 20,
-                                                    backgroundImage: AssetImage(
-                                                        'lib/icons/profile_image.png'),
-                                                  ),
-                                                ),
-                                                SizedBox(width: 12),
-                                                // Comment text and like section
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      Text(
-                                                        commentUsername,
-                                                        style: TextStyle(
-                                                          color: Colors.white,
-                                                          fontWeight: FontWeight.bold,
-                                                          fontSize: 20,
-                                                        ),
-                                                      ),
-                                                      SizedBox(height: 4),
-                                                      Text(
-                                                        commentText,
-                                                        style: TextStyle(
-                                                          color: Colors.white,
-                                                        ),
-                                                      ),
-                                                      SizedBox(height: 4),
-                                                    ],
-                                                  ),
-                                                ),
-                                                // Like button and count
-                                                Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                          return FutureBuilder<DocumentSnapshot>(
+                                            future: FirebaseFirestore.instance.collection('users').doc(commentUserId).get(),
+                                            builder: (context, userSnapshot) {
+                                              if (userSnapshot.connectionState == ConnectionState.waiting) {
+                                                return Center(child: CircularProgressIndicator());
+                                              }
+
+                                              if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+                                                return SizedBox(); // Handle case where user data does not exist
+                                              }
+
+                                              final userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                                              final String commentUsername = userData['username'] ?? 'Username';
+                                              final String profilePicUrl = userData['imageUrl'] ?? 'assets/default_profile_pic.png';
+
+                                              return Padding(
+                                                padding: EdgeInsets.symmetric(vertical: 8),
+                                                child: Row(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
                                                   children: [
-                                                    IconButton(
-                                                      icon: Icon(
-                                                        Icons.favorite_border_outlined,
-                                                        color: Colors.white,
+                                                    // User profile image
+                                                    Container(
+                                                      width: 40,
+                                                      height: 40,
+                                                      decoration: BoxDecoration(
+                                                        shape: BoxShape.circle,
+                                                        border: Border.all(
+                                                          color: Colors.white,
+                                                          width: 2,
+                                                        ),
                                                       ),
-                                                      onPressed: () async {
-                                                        final userId = FirebaseAuth.instance.currentUser?.uid;
-                                                        if (userId == null) {
-                                                          print('User ID is null');
-                                                          return;
-                                                        }
-
-                                                        // Increment the like count locally
-                                                        final newLikeCount = commentLikes + 1;
-                                                        comment['likes'] = newLikeCount;
-
-                                                        try {
-                                                          // Update Firestore with the new like count
-                                                          await FirebaseFirestore.instance.collection('posts').doc(document.id).update({
-                                                            'comments': comments,
-                                                          });
-
-                                                          print('Comment liked successfully');
-
-                                                          // Fetch the post document to retrieve the post image
-                                                          final postDoc = await FirebaseFirestore.instance.collection('posts').doc(document.id).get();
-                                                          if (!postDoc.exists) {
-                                                            print('Post document does not exist');
-                                                            return;
-                                                          }
-
-                                                          final postData = postDoc.data()!;
-                                                          final List<dynamic> files = List.from(postData['files'] ?? []);
-                                                          final postImage = files.isNotEmpty ? files[0] as String : ''; // Get the first file URL
-
-                                                          // Fetch the user's profile picture URL
-                                                          final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
-                                                          if (!userDoc.exists) {
-                                                            print('User document does not exist');
-                                                            return;
-                                                          }
-
-                                                          final userData = userDoc.data()!;
-                                                          final profilePic = userData['profilePic'] ?? 'assets/default_profile_pic.png'; // Default profile picture URL
-
-                                                          // Prepare activity data
-                                                          final now = DateTime.now();
-                                                          final activityData = {
-                                                            'userId': userId,
-                                                            'type': 'like',
-                                                            'description': 'Liked your comment on post ${document.id}',
-                                                            'timestamp': Timestamp.fromDate(now),
-                                                            'profilePic': profilePic, // Use the fetched profile picture URL
-                                                            'postImage': postImage, // Use the fetched post image URL
-                                                          };
-
-                                                          // Record activity in Firestore
-                                                          await FirebaseFirestore.instance.collection('activities').add(activityData);
-
-                                                          print('Activity recorded successfully');
-                                                        } catch (error) {
-                                                          print('Failed to like comment or record activity: $error');
-                                                        }
-
-                                                        setState(() {}); // Refresh UI
-                                                      },
-
-
+                                                      child: CircleAvatar(
+                                                        radius: 20,
+                                                        backgroundImage: NetworkImage(profilePicUrl),
+                                                      ),
                                                     ),
-                                                    SizedBox(height: 4),
-                                                    Text(
-                                                      '$commentLikes',
-                                                      style: TextStyle(
-                                                        color: Colors.white,
+                                                    SizedBox(width: 12),
+                                                    // Comment text and like section
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          Text(
+                                                            commentUsername,
+                                                            style: TextStyle(
+                                                              color: Colors.white,
+                                                              fontWeight: FontWeight.bold,
+                                                              fontSize: 20,
+                                                            ),
+                                                          ),
+                                                          SizedBox(height: 4),
+                                                          Text(
+                                                            commentText,
+                                                            style: TextStyle(
+                                                              color: Colors.white,
+                                                            ),
+                                                          ),
+                                                          SizedBox(height: 4),
+                                                        ],
                                                       ),
+                                                    ),
+                                                    // Like button and count
+                                                    Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                                      children: [
+                                                        IconButton(
+                                                          icon: Icon(
+                                                            Icons.favorite_border_outlined,
+                                                            color: Colors.white,
+                                                          ),
+                                                          onPressed: () async {
+                                                            final userId = FirebaseAuth.instance.currentUser?.uid;
+                                                            if (userId == null) {
+                                                              print('User ID is null');
+                                                              return;
+                                                            }
+
+                                                            // Increment the like count locally
+                                                            final newLikeCount = commentLikes + 1;
+                                                            comment['likes'] = newLikeCount;
+
+                                                            try {
+                                                              // Update Firestore with the new like count
+                                                              await FirebaseFirestore.instance.collection('posts').doc(document.id).update({
+                                                                'comments': comments,
+                                                              });
+
+                                                              print('Comment liked successfully');
+
+                                                              // Fetch the post document to retrieve the post image
+                                                              final postDoc = await FirebaseFirestore.instance.collection('posts').doc(document.id).get();
+                                                              if (!postDoc.exists) {
+                                                                print('Post document does not exist');
+                                                                return;
+                                                              }
+
+                                                              final postData = postDoc.data()!;
+                                                              final List<dynamic> files = List.from(postData['files'] ?? []);
+                                                              final postImage = files.isNotEmpty ? files[0] as String : ''; // Get the first file URL
+
+                                                              // Fetch the user's profile picture URL
+                                                              final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+                                                              if (!userDoc.exists) {
+                                                                print('User document does not exist');
+                                                                return;
+                                                              }
+
+                                                              final userData = userDoc.data()!;
+                                                              final profilePic = userData['profilePic'] ?? 'assets/default_profile_pic.png'; // Default profile picture URL
+
+                                                              // Prepare activity data
+                                                              final now = DateTime.now();
+                                                              final activityData = {
+                                                                'userId': userId,
+                                                                'type': 'like',
+                                                                'description': 'Liked your comment on post ${document.id}',
+                                                                'timestamp': Timestamp.fromDate(now),
+                                                                'profilePic': profilePic, // Use the fetched profile picture URL
+                                                                'postImage': postImage, // Use the fetched post image URL
+                                                              };
+
+                                                              // Record activity in Firestore
+                                                              await FirebaseFirestore.instance.collection('activities').add(activityData);
+
+                                                              print('Activity recorded successfully');
+                                                            } catch (error) {
+                                                              print('Failed to like comment or record activity: $error');
+                                                            }
+
+                                                            setState(() {}); // Refresh UI
+                                                          },
+                                                        ),
+                                                        SizedBox(height: 4),
+                                                        Text(
+                                                          '$commentLikes',
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                          ),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ],
                                                 ),
-                                              ],
-
-                                            ),
+                                              );
+                                            },
                                           );
                                         },
                                       ),
                                     ),
+
                                     // Add comment section
                                     Padding(
                                       padding: EdgeInsets.all(16),
